@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>收作业系统</title>
+<script src="https://cdn.bootcdn.net/ajax/libs/cos-js-sdk-v5/1.8.0/cos-js-sdk-v5.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+.container{max-width:520px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:14px;box-shadow:0 2px 16px rgba(0,0,0,.06);overflow:hidden;margin-bottom:16px}
+.card-header{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:20px;text-align:center}
+.card-header h1{font-size:18px;font-weight:600}
+.card-header p{font-size:12px;opacity:.8;margin-top:4px}
+.card-body{padding:16px}
+.form-group{margin-bottom:12px}
+.form-group label{display:block;font-size:13px;font-weight:500;color:#444;margin-bottom:4px}
+.form-group input{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;transition:border .2s}
+.form-group input:focus{border-color:#667eea}
+.btn{display:block;width:100%;padding:12px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-primary{background:#667eea;color:#fff}
+.btn-primary:hover{opacity:.9}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{width:auto;padding:6px 14px;font-size:12px}
+.btn-outline{background:#fff;color:#667eea;border:1.5px solid #667eea}
+.tabs{display:flex;background:#f8f9fa;border-bottom:1px solid #eee}
+.tab{flex:1;padding:12px;text-align:center;cursor:pointer;font-size:13px;font-weight:500;color:#888;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:#667eea;border-bottom-color:#667eea}
+.panel{display:none;padding:16px}
+.panel.active{display:block}
+/* Upload */
+.upload-zone{border:2px dashed #d0d0d0;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all .2s;margin:12px 0}
+.upload-zone:hover,.upload-zone.drag{border-color:#667eea;background:#f8f9ff}
+.upload-zone-icon{font-size:32px;margin-bottom:6px}
+.upload-zone-text{font-size:13px;color:#888}
+.file-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#f8f9fa;border-radius:8px;margin-bottom:6px;font-size:13px}
+.file-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
+.file-item .size{color:#999;white-space:nowrap;margin-right:8px;font-size:12px}
+.progress-bar{height:5px;background:#e0e0e0;border-radius:3px;margin-top:8px;overflow:hidden}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#667eea,#764ba2);width:0%;transition:width .3s}
+.status{text-align:center;font-size:12px;color:#888;margin-top:8px}
+/* Chat */
+.chat-box{background:#f8f9fa;border-radius:12px;padding:12px;min-height:200px;max-height:360px;overflow-y:auto;margin:12px 0}
+.chat-msg{display:flex;gap:8px;margin-bottom:10px}
+.chat-msg .avatar{width:32px;height:32px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.chat-msg.mine{flex-direction:row-reverse}
+.chat-msg.mine .avatar{background:#667eea;color:#fff}
+.chat-msg .bubble{background:#fff;border-radius:10px;padding:8px 12px;max-width:75%;font-size:13px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.chat-msg.mine .bubble{background:#667eea;color:#fff}
+.chat-msg .author{font-size:11px;color:#999;margin-bottom:2px}
+.chat-input{display:flex;gap:8px}
+.chat-input input{flex:1;padding:10px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none}
+.chat-input input:focus{border-color:#667eea}
+/* History */
+.history-item{padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:13px}
+.history-item .batch{font-weight:600;color:#667eea}
+.history-item .time{font-size:11px;color:#999;margin-top:2px}
+.history-item .files{color:#666;font-size:12px}
+/* Common */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,.06);margin-bottom:16px}
+.user-info{font-size:13px;display:flex;align-items:center;gap:8px}
+.user-info .name{font-weight:600;color:#333}
+.error-msg{color:#e74c3c;font-size:12px;margin-top:4px;display:none}
+.success-msg{color:#27ae60;font-size:12px;margin-top:4px;display:none}
+.msg-show{display:block}
+#loginView{display:block}
+#mainView{display:none}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="loginView">
+<div class="container" style="padding-top:60px">
+<div class="card">
+<div class="card-header"><h1>📚 收作业系统</h1><p>请使用学号和密码登录</p></div>
+<div class="card-body">
+<div class="form-group"><label>学号</label><input id="studentId" placeholder="请输入学号" autocomplete="off"></div>
+<div class="form-group"><label>密码</label><input id="password" type="password" placeholder="请输入密码"></div>
+<div class="error-msg" id="loginError"></div>
+<button class="btn btn-primary" onclick="login()">登 录</button>
+</div></div></div></div>
+
+<div id="mainView" class="hidden">
+<div class="container">
+<div class="topbar">
+<div class="user-info">👤 <span class="name" id="displayName"></span> <span style="color:#999;font-size:11px" id="displayId"></span></div>
+<div><button class="btn btn-sm btn-outline" onclick="showChangePwd()">改密</button> <button class="btn btn-sm btn-outline" onclick="logout()">退出</button></div>
+</div>
+
+<div class="card">
+<div class="tabs">
+<div class="tab active" data-panel="panelUpload">📤 上传文件</div>
+<div class="tab" data-panel="panelChat">💬 聊天室</div>
+<div class="tab" data-panel="panelHistory">📋 记录</div>
+</div>
+
+<div class="panel active" id="panelUpload">
+<div class="form-group"><label>作业批次</label><input id="batchName" value="设计素描作业3"></div>
+<div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
+<div class="upload-zone-icon">📤</div>
+<div class="upload-zone-text">点击选择文件或拖拽到此处</div>
+<div style="font-size:11px;color:#aaa;margin-top:4px">支持图片、视频、压缩包、Office、PDF</div>
+</div>
+<input type="file" id="fileInput" multiple style="display:none" onchange="handleFiles(this.files)">
+<div id="fileList"></div>
+<div class="progress-bar" id="progressBar" style="display:none"><div class="fill" id="progressFill"></div></div>
+<div class="status" id="statusText"></div>
+<button class="btn btn-primary" id="uploadBtn" onclick="startUpload()" style="margin-top:10px" disabled>开始上传</button>
+<div class="error-msg" id="uploadError"></div>
+<div class="success-msg" id="uploadSuccess"></div>
+</div>
+
+<div class="panel" id="panelChat">
+<div class="chat-box" id="chatBox"><div style="text-align:center;color:#aaa;padding:20px">暂无消息，开始聊天吧~</div></div>
+<div class="chat-input">
+<input id="chatInput" placeholder="输入消息..." maxlength="200" onkeydown="if(event.key==='Enter')sendMsg()">
+<button class="btn btn-primary btn-sm" onclick="sendMsg()">发送</button>
+</div>
+</div>
+
+<div class="panel" id="panelHistory">
+<div id="historyList"><div style="text-align:center;color:#aaa;padding:20px">暂无上传记录</div></div>
+</div>
+</div></div></div>
+
+<!-- 修改密码弹窗 -->
+<div id="pwdModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center" onclick="if(event.target===this)hideChangePwd()">
+<div style="background:#fff;border-radius:14px;padding:20px;width:90%;max-width:360px">
+<h3 style="margin-bottom:14px">🔒 修改密码</h3>
+<div class="form-group"><label>原密码</label><input id="oldPwd" type="password"></div>
+<div class="form-group"><label>新密码</label><input id="newPwd" type="password" placeholder="6位以上"></div>
+<div class="form-group"><label>确认新密码</label><input id="newPwd2" type="password"></div>
+<div class="error-msg" id="pwdError"></div>
+<div class="success-msg" id="pwdSuccess"></div>
+<div style="display:flex;gap:8px;margin-top:12px">
+<button class="btn btn-outline btn-sm" onclick="hideChangePwd()" style="flex:1">取消</button>
+<button class="btn btn-primary btn-sm" onclick="changePassword()" style="flex:1">确认</button>
+</div></div></div>
+
+<script>
+// ═══ 配置 ═══
+const API='https://1321671019-bl6aqlm041.ap-guangzhou.tencentscf.com';
+let currentStudent=null,selectedFiles=[],chatInterval=null;
+
+// ═══ 工具 ═══
+async function s256(m){const b=new TextEncoder().encode(m);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══ 标签切换 ═══
+document.querySelectorAll('.tab').forEach(t=>{
+ t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById(t.dataset.panel).classList.add('active');
+  if(t.dataset.panel==='panelChat'&&currentStudent){loadChat();startChatPoll();}
+  else clearInterval(chatInterval);
+  if(t.dataset.panel==='panelHistory')loadHistory();
+ });
+});
+
+// ═══ 登录 ═══
+async function login(){
+ const sid=document.getElementById('studentId').value.trim();
+ const pw=document.getElementById('password').value;
+ const el=document.getElementById('loginError');el.classList.remove('msg-show');
+ if(!sid||!pw){el.textContent='请输入学号和密码';el.classList.add('msg-show');return;}
+ try{
+  const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({studentId:sid,password:pw})});
+  const d=await r.json();
+  if(d.success){
+   currentStudent=d.student;
+   localStorage.setItem('hw_token',d.token);
+   localStorage.setItem('hw_student',JSON.stringify(d.student));
+   document.getElementById('displayName').textContent=d.student.name;
+   document.getElementById('displayId').textContent=d.student.id;
+   document.getElementById('loginView').style.display='none';
+   document.getElementById('mainView').classList.remove('hidden');
+   return;
+  }
+  el.textContent=d.error||'登录失败';el.classList.add('msg-show');
+ }catch(e){el.textContent='网络错误';el.classList.add('msg-show');}
+}
+function logout(){
+ currentStudent=null;selectedFiles=[];clearInterval(chatInterval);
+ localStorage.removeItem('hw_token');localStorage.removeItem('hw_student');
+ document.getElementById('mainView').classList.add('hidden');
+ document.getElementById('loginView').style.display='block';
+ document.getElementById('password').value='';
+ document.getElementById('fileInput').value='';
+ document.getElementById('fileList').innerHTML='';
+}
+
+// ═══ 文件上传 ═══
+function handleFiles(files){for(const f of files){if(f.size>100*1024*1024){alert(f.name+' 超过100MB');continue}selectedFiles.push(f)}renderFiles()}
+function renderFiles(){
+ const el=document.getElementById('fileList');
+ const btn=document.getElementById('uploadBtn');
+ el.innerHTML=selectedFiles.map((f,i)=>{
+  const s=f.size<1024*1024?(f.size/1024).toFixed(0)+'KB':(f.size/(1024*1024)).toFixed(1)+'MB';
+  return `<div class="file-item"><span class="name">${esc(f.name)}</span><span class="size">${s}</span><button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:11px;color:#e74c3c" onclick="removeFile(${i})">×</button></div>`;
+ }).join('');
+ btn.disabled=selectedFiles.length===0;
+}
+function removeFile(i){selectedFiles.splice(i,1);renderFiles()}
+
+const zone=document.getElementById('uploadZone');
+zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag')});
+zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('drag');handleFiles(e.dataTransfer.files)});
+
+async function startUpload(){
+ if(selectedFiles.length===0)return;
+ const batch=document.getElementById('batchName').value.trim();
+ if(!batch){alert('请输入作业批次');return}
+
+ const btn=document.getElementById('uploadBtn'),status=document.getElementById('statusText');
+ const pf=document.getElementById('progressFill'),pb=document.getElementById('progressBar');
+ const es=document.getElementById('uploadError'),ss=document.getElementById('uploadSuccess');
+ btn.disabled=true;es.classList.remove('msg-show');ss.classList.remove('msg-show');
+ pb.style.display='block';pf.style.width='0%';
+
+ // 获取 STS
+ status.textContent='获取上传凭证...';
+ let cosCfg;
+ try{
+  const t=localStorage.getItem('hw_token');
+  if(t){
+   const cr=await fetch(API+'/api/credential',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({homeworkBatch:batch})});
+   const cd=await cr.json();
+   if(cd.success&&cd.credentials){
+    const c=cd.credentials;
+    cosCfg={getAuthorization:(o,cb)=>cb({TmpSecretId:c.tmpSecretId,TmpSecretKey:c.tmpSecretKey,SecurityToken:c.sessionToken,StartTime:c.startTime,ExpiredTime:c.expiredTime})};
+   }
+  }
+ }catch(e){console.log('STS 获取失败')}
+ if(!cosCfg){es.textContent='获取上传凭证失败，请重新登录';es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
+
+ const cos=new COS(cosCfg);
+ const prefix=`${batch}/${currentStudent.id}/`;
+ let done=0,fail=0,results=[];
+
+ for(const file of selectedFiles){
+  const ts=Date.now(),sn=file.name.replace(/[^\w.\-()\u4e00-\u9fa5]/g,'_'),key=prefix+ts+'_'+sn;
+  try{
+   await new Promise((rs,rj)=>cos.putObject({Bucket:'homework-1321671019',Region:'ap-guangzhou',Key:key,Body:file,onProgress:info=>{
+    const p=Math.round(info.percent*100);status.textContent=`${file.name} (${p}%)  ${done+fail+1}/${selectedFiles.length}`;
+   }},(e,d)=>{if(e){fail++;rj(e)}else{done++;results.push({name:file.name,key,size:file.size});rs()}}));
+  }catch(e){console.error(file.name,e.message)}
+ }
+ const pct=((done+fail)/selectedFiles.length*100).toFixed(0);
+ pf.style.width=pct+'%';
+ if(fail===0){
+  ss.textContent=`✅ 全部成功！${done}个文件已上传`;ss.classList.add('msg-show');
+  status.textContent='上传完成 ✓';
+  saveLocalHistory(results);
+ }else{
+  es.textContent=`⚠️ ${done}成功, ${fail}失败`;es.classList.add('msg-show');
+ }
+ selectedFiles=[];document.getElementById('fileInput').value='';renderFiles();btn.disabled=false;
+}
+
+function saveLocalHistory(results){
+ const k='hw_uploads_'+currentStudent.id;
+ const ex=JSON.parse(localStorage.getItem(k)||'[]');
+ const b=document.getElementById('batchName').value.trim();
+ ex.unshift({batch,time:new Date().toLocaleString('zh-CN'),files:results});
+ localStorage.setItem(k,JSON.stringify(ex.slice(0,30)));
+}
+
+// ═══ 聊天 ═══
+function startChatPoll(){clearInterval(chatInterval);chatInterval=setInterval(loadChat,5000);}
+async function loadChat(){
+ const batch=document.getElementById('batchName').value.trim();
+ if(!batch||!currentStudent)return;
+ try{
+  const t=localStorage.getItem('hw_token');
+  const r=await fetch(API+'/api/chat/list',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({homeworkBatch:batch})});
+  const d=await r.json();
+  renderChat(d.messages||[]);
+ }catch(e){}
+}
+function renderChat(msgs){
+ const el=document.getElementById('chatBox');
+ if(msgs.length===0){el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">暂无消息，开始聊天吧~</div>';return}
+ el.innerHTML=msgs.map(m=>{
+  const mine=m.sid===currentStudent.id;
+  const date=new Date(m.time*1000);
+  const t=date.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  return `<div class="chat-msg${mine?' mine':''}">
+   <div class="avatar">${(m.name||'?')[0]}</div>
+   <div class="bubble">
+    ${mine?'':`<div class="author">${esc(m.name)}</div>`}
+    <div>${esc(m.text)}</div>
+    <div style="font-size:10px;opacity:.6;margin-top:2px">${t}</div>
+   </div></div>`;
+ }).join('');
+ el.scrollTop=el.scrollHeight;
+}
+async function sendMsg(){
+ const inp=document.getElementById('chatInput');
+ const text=inp.value.trim();
+ if(!text||!currentStudent)return;
+ inp.value='';inp.disabled=true;
+ try{
+  const t=localStorage.getItem('hw_token');
+  const batch=document.getElementById('batchName').value.trim();
+  const r=await fetch(API+'/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({homeworkBatch:batch,text})});
+  const d=await r.json();
+  if(d.success)loadChat();
+ }catch(e){alert('发送失败')}
+ inp.disabled=false;inp.focus();
+}
+
+// ═══ 历史 ═══
+function loadHistory(){
+ const el=document.getElementById('historyList');
+ const k='hw_uploads_'+currentStudent.id;
+ const h=JSON.parse(localStorage.getItem(k)||'[]');
+ if(h.length===0){el.innerHTML='<div style="text-align:center;color:#aaa;padding:20px">暂无上传记录</div>';return}
+ el.innerHTML=h.map(x=>`<div class="history-item">
+  <div class="batch">📦 ${esc(x.batch)}</div>
+  <div class="time">${esc(x.time)}</div>
+  <div class="files">${x.files.map(f=>'📎 '+esc(f.name)).join('<br>')}</div>
+ </div>`).join('');
+}
+
+// ═══ 改密码 ═══
+function showChangePwd(){
+ document.getElementById('oldPwd').value='';document.getElementById('newPwd').value='';
+ document.getElementById('newPwd2').value='';document.getElementById('pwdError').classList.remove('msg-show');
+ document.getElementById('pwdSuccess').classList.remove('msg-show');
+ document.getElementById('pwdModal').style.display='flex';
+}
+function hideChangePwd(){document.getElementById('pwdModal').style.display='none';}
+</script>
+</body>
+</html>
