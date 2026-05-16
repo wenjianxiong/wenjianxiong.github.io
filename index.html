@@ -97,7 +97,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <div class="panel active" id="panelUpload">
-<div class="form-group"><label>作业批次</label><input id="batchName" value="设计素描作业3"></div>
+<div class="form-group"><label>作业批次</label><select id="batchName"></select></div>
 <div id="uploadZone" class="upload-zone" onclick="document.getElementById('fileInput').click()">
 <div class="upload-zone-icon">📤</div>
 <div class="upload-zone-text">点击选择文件或拖拽到此处</div>
@@ -171,13 +171,14 @@ async function login(){
   const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({studentId:sid,password:pw})});
   const d=await r.json();
   if(d.success){
-   currentStudent=d.student;
+   currentStudent=d.user;
    localStorage.setItem('hw_token',d.token);
-   localStorage.setItem('hw_student',JSON.stringify(d.student));
-   document.getElementById('displayName').textContent=d.student.name;
-   document.getElementById('displayId').textContent=d.student.id;
+   localStorage.setItem('hw_student',JSON.stringify(d.user));
+   document.getElementById('displayName').textContent=d.user.name;
+   document.getElementById('displayId').textContent=d.user.id;
    document.getElementById('loginView').style.display='none';
    document.getElementById('mainView').classList.remove('hidden');
+   loadBatches();
    return;
   }
   el.textContent=d.error||'登录失败';el.classList.add('msg-show');
@@ -191,6 +192,18 @@ function logout(){
  document.getElementById('password').value='';
  document.getElementById('fileInput').value='';
  document.getElementById('fileList').innerHTML='';
+}
+async function loadBatches(){
+ const t=localStorage.getItem('hw_token');
+ try{
+  const r=await fetch(API+'/api/batches',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t}});
+  const d=await r.json();
+  if(d.success&&d.batches){
+   const sel=document.getElementById('batchName');
+   sel.innerHTML=d.batches.map((b,i)=>'<option value="'+esc(b)+'"'+(i===0?' selected':'')+'>'+esc(b)+'</option>').join('');
+   sel.onchange=()=>{document.getElementById('fileList').innerHTML='';selectedFiles=[];document.getElementById('uploadBtn').disabled=true;};
+  }
+ }catch(e){}
 }
 
 // ═══ 文件上传 ═══
