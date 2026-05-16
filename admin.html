@@ -99,8 +99,9 @@ tr:hover{background:#f8f9fa}
 <div id="loginView">
 <div class="login-card">
 <h2>🔧 收作业系统</h2>
-<p>教师管理端</p>
-<input id="adminPwd" type="password" placeholder="管理密码" onkeydown="if(event.key==='Enter')adminLogin()">
+<p>教师管理端 · 账号登录</p>
+<input id="adminId" type="text" placeholder="管理员账号" onkeydown="if(event.key==='Enter')adminLogin()">
+<input id="adminPwd" type="password" placeholder="管理员密码" onkeydown="if(event.key==='Enter')adminLogin()">
 <div id="loginError" style="color:#e74c3c;font-size:13px;margin-bottom:10px;display:none"></div>
 <button class="btn btn-dark" onclick="adminLogin()" style="width:100%">登 录</button>
 </div>
@@ -109,7 +110,7 @@ tr:hover{background:#f8f9fa}
 <div id="mainView" class="hidden">
 <div class="topbar">
 <h1>📚 收作业系统 · 教师管理</h1>
-<span class="user" onclick="adminLogout()">退出 ▸</span>
+<span class="user" id="adminUserInfo" onclick="adminLogout()">退出 ▸</span>
 </div>
 <div class="container">
 <div class="tabs">
@@ -117,6 +118,8 @@ tr:hover{background:#f8f9fa}
 <div class="tab" data-panel="panelFiles">📁 文件浏览</div>
 <div class="tab" data-panel="panelChat">💬 聊天管理</div>
 <div class="tab" data-panel="panelDeploy">🚀 发布</div>
+<div class="tab super-only hidden" data-panel="panelBatches">📦 批次管理</div>
+<div class="tab super-only hidden" data-panel="panelAdmins">🔑 管理员</div>
 </div>
 
 <div class="panel active" id="panelStudents">
@@ -131,6 +134,33 @@ tr:hover{background:#f8f9fa}
 </div>
 <div id="studentList"></div>
 </div>
+
+<!-- 批次管理（超管专属） -->
+<div class="panel" id="panelBatches">
+<div class="toolbar">
+<div class="form-group" style="min-width:200px"><label>新建批次名称</label><div class="input-row"><input id="newBatchName" placeholder="如：设计素描作业4"><button class="btn btn-success" onclick="createBatch()">＋ 创建</button></div></div>
+</div>
+<table><thead><tr><th>批次名称</th><th>操作</th></tr></thead><tbody id="batchList"><tr><td colspan="2" class="loading">加载中...</td></tr></tbody></table>
+</div>
+
+<!-- 管理员账号（超管专属） -->
+<div class="panel" id="panelAdmins">
+<div class="toolbar"><button class="btn btn-success" onclick="showAddAdmin()">＋ 添加管理员</button></div>
+<table><thead><tr><th>账号</th><th>姓名</th><th>角色</th><th>操作</th></tr></thead><tbody id="adminList"><tr><td colspan="4" class="loading">加载中...</td></tr></tbody></table>
+</div>
+
+<!-- 添加管理员弹窗 -->
+<div class="modal" id="addAdminModal">
+<div class="modal-content">
+<h3>添加管理员</h3>
+<div class="form-group"><label>账号</label><input id="addAdminId"></div>
+<div class="form-group"><label>姓名</label><input id="addAdminName"></div>
+<div class="form-group"><label>密码</label><input id="addAdminPwd" type="text" value="123456"></div>
+<div class="modal-actions">
+<button class="btn btn-outline" onclick="document.getElementById('addAdminModal').classList.remove('show')">取消</button>
+<button class="btn btn-success" onclick="addAdmin()">确认添加</button>
+</div>
+</div></div>
 
 <div class="panel" id="panelFiles">
 <div class="toolbar">
@@ -195,8 +225,7 @@ tr:hover{background:#f8f9fa}
 
 <script>
 const API='https://1321671019-bl6aqlm041.ap-guangzhou.tencentscf.com';
-let adminToken='';
-let accounts=null; // {students:[...]}
+let adminToken='',accounts=null,currentUser=null;
 let currentTab='panelStudents';
 
 // ═══ 内嵌账号（离线备用） ═══
@@ -221,47 +250,47 @@ function toast(msg,type){
  setTimeout(()=>t.classList.remove('show'),2500);
 }
 
-// ═══ 登录 ═══
+// ═══ 登录（账号制）═══
 async function adminLogin(){
+ const id=document.getElementById('adminId').value.trim();
  const pw=document.getElementById('adminPwd').value;
  const err=document.getElementById('loginError');
  err.style.display='none';
- if(!pw){err.textContent='请输入密码';err.style.display='block';return;}
-
- // 先试离线
- const h=await s256(pw);
- if(h==='240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'){
-  try{
-   const r=await api('/api/admin/login',{password:pw},null);
-   if(r.success)adminToken=r.token;
-  }catch(e){console.log('云端登录失败，使用离线模式');}
-  document.getElementById('loginView').style.display='none';
-  document.getElementById('mainView').classList.remove('hidden');
-  await loadAccounts();
-  return;
- }
-
- // 试云端
+ if(!id||!pw){err.textContent='请输入账号和密码';err.style.display='block';return;}
  try{
-  const r=await api('/api/admin/login',{password:pw},null);
-  if(r.success){adminToken=r.token;showMain();return;}
-  err.textContent=r.error||'密码错误';err.style.display='block';
- }catch(e){
-  err.textContent='登录失败，请检查网络';err.style.display='block';
- }
+  const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({studentId:id,password:pw})});
+  const d=await r.json();
+  if(!d.success){err.textContent=d.error||'登录失败';err.style.display='block';return;}
+  if(!d.user.role||(d.user.role!=='admin'&&d.user.role!=='superadmin')){err.textContent='非管理员账号';err.style.display='block';return;}
+  adminToken=d.token;currentUser=d.user;
+  localStorage.setItem('hw_admin_token',d.token);
+  localStorage.setItem('hw_admin_user',JSON.stringify(d.user));
+  showMain();
+ }catch(e){err.textContent='网络错误';err.style.display='block';}
 }
 function showMain(){
+ if(currentUser){
+  const u=document.getElementById('adminUserInfo');
+  const badge=currentUser.role==='superadmin'?' 👑超管':'';
+  u.innerHTML=currentUser.name+''+badge+' · 退出 ▸';
+ }
  document.getElementById('loginView').style.display='none';
  document.getElementById('mainView').classList.remove('hidden');
+ // 超管显示专属面板
+ const isSuper=currentUser&&currentUser.role==='superadmin';
+ document.querySelectorAll('.super-only').forEach(el=>{el.classList.toggle('hidden',!isSuper);});
  loadAccounts();
+ if(isSuper){loadBatches();loadAdmins();}
 }
 
 // ═══ 退出 ═══
 function adminLogout(){
- adminToken='';
- accounts=null;
+ adminToken='';accounts=null;currentUser=null;
+ localStorage.removeItem('hw_admin_token');
+ localStorage.removeItem('hw_admin_user');
  document.getElementById('mainView').classList.add('hidden');
  document.getElementById('loginView').style.display='block';
+ document.getElementById('adminId').value='';
  document.getElementById('adminPwd').value='';
 }
 
@@ -280,19 +309,11 @@ document.querySelectorAll('.tab').forEach(t=>{
 async function loadAccounts(){
  try{
   const r=await api('/api/admin/accounts',{action:'list'});
-  if(r && Object.keys(r).length>0){
-   // API返回的是{studentId:{id,name,passwordHash,enabled}}
-   const students=[];
-   for(const [id,s] of Object.entries(r)){
-    students.push({id,name:s.name,passwordHash:s.passwordHash,enabled:s.enabled!==false});
-   }
-   accounts={students};
-  }
- }catch(e){console.log('云端加载失败，使用内嵌数据');}
+  if(r&&r.students){accounts=r;}else if(r){accounts={students:Object.values(r)};}
+ }catch(e){console.log('云端加载失败');}
  if(!accounts&&EMBEDDED)accounts=EMBEDDED;
  if(!accounts)accounts={students:[]};
- renderStudents();
- updateStats();
+ renderStudents();updateStats();
 }
 async function saveAccounts(){
  try{
@@ -453,6 +474,69 @@ async function deploy(){
   await saveAccounts();
   el.style.color='#27ae60';el.textContent='✅ 发布完成！账号数据已同步到云端';
  }catch(e){el.style.color='#e74c3c';el.textContent='❌ '+e.message;}
+}
+
+// ═══ 批次管理（超管） ═══
+async function loadBatches(){
+ try{
+  const r=await api('/api/batches',{});
+  if(r.success&&r.batches)renderBatches(r.batches);
+ }catch(e){}
+}
+function renderBatches(batches){
+ const el=document.getElementById('batchList');
+ if(!batches||batches.length===0){el.innerHTML='<tr><td colspan="2">暂无批次</td></tr>';return;}
+ el.innerHTML=batches.map(b=>`<tr><td>${esc(b)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteBatch('${esc(b)}')">删除</button></td></tr>`).join('');
+}
+async function createBatch(){
+ const name=document.getElementById('newBatchName').value.trim();
+ if(!name){toast('请输入批次名称','error');return;}
+ try{
+  const r=await api('/api/admin/batches/create',{name});
+  if(r.success){document.getElementById('newBatchName').value='';renderBatches(r.batches);toast('批次已创建','success');}
+  else toast(r.error,'error');
+ }catch(e){toast('创建失败','error');}
+}
+async function deleteBatch(name){
+ if(!confirm('删除批次「'+name+'」？已上传文件不会删除'))return;
+ try{
+  const r=await api('/api/admin/batches/delete',{name});
+  if(r.success){renderBatches(r.batches);toast('批次已删除','success');}
+  else toast(r.error,'error');
+ }catch(e){toast('删除失败','error');}
+}
+
+// ═══ 管理员管理（超管） ═══
+async function loadAdmins(){
+ try{
+  const r=await api('/api/admin/accounts',{action:'list'});
+  if(r&&r.admins)renderAdmins(r.admins);
+ }catch(e){}
+}
+function renderAdmins(admins){
+ const el=document.getElementById('adminList');
+ if(!admins||admins.length===0){el.innerHTML='<tr><td colspan="4">暂无管理员</td></tr>';return;}
+ el.innerHTML=admins.map(a=>`<tr><td>${esc(a.id)}</td><td>${esc(a.name)}</td><td><span class="badge ${a.role==='superadmin'?'badge-active':''}">${a.role==='superadmin'?'👑超管':'管理员'}</span></td><td>${a.role==='superadmin'?'':`<button class="btn btn-danger btn-sm" onclick="deleteAdmin('${esc(a.id)}')">删除</button>`}</td></tr>`).join('');
+}
+function showAddAdmin(){document.getElementById('addAdminModal').classList.add('show');}
+async function addAdmin(){
+ const id=document.getElementById('addAdminId').value.trim();
+ const name=document.getElementById('addAdminName').value.trim();
+ const pwd=document.getElementById('addAdminPwd').value.trim();
+ if(!id||!name||!pwd){toast('请填写完整','error');return;}
+ try{
+  const r=await api('/api/admin/accounts',{action:'createAdmin',id,name,password:pwd});
+  if(r.success){document.getElementById('addAdminModal').classList.remove('show');document.getElementById('addAdminId').value='';document.getElementById('addAdminName').value='';document.getElementById('addAdminPwd').value='123456';loadAdmins();loadAccounts();toast('管理员已创建','success');}
+  else toast(r.error,'error');
+ }catch(e){toast('创建失败','error');}
+}
+async function deleteAdmin(id){
+ if(!confirm('确认删除管理员 '+id+'?'))return;
+ try{
+  const r=await api('/api/admin/accounts',{action:'deleteAdmin',id});
+  if(r.success){loadAdmins();loadAccounts();toast('管理员已删除','success');}
+  else toast(r.error,'error');
+ }catch(e){toast('删除失败','error');}
 }
 </script>
 </body>
