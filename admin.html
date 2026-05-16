@@ -138,9 +138,15 @@ tr:hover{background:#f8f9fa}
 <!-- 批次管理（超管专属） -->
 <div class="panel" id="panelBatches">
 <div class="toolbar">
-<div class="form-group" style="min-width:200px"><label>新建批次名称</label><div class="input-row"><input id="newBatchName" placeholder="如：设计素描作业4"><button class="btn btn-success" onclick="createBatch()">＋ 创建</button></div></div>
+<div class="form-group" style="min-width:200px"><label>批次名称</label><input id="newBatchName" placeholder="如：设计素描作业4"></div>
+<div class="form-group" style="min-width:160px"><label>截止时间（可选）</label><input id="newBatchDeadline" type="datetime-local"></div>
+<button class="btn btn-success" onclick="createBatch()" style="margin-top:20px">＋ 创建</button>
+<span class="spacer"></span>
+<button class="btn btn-info" onclick="checkSubmissions()">📋 检查提交</button>
+<button class="btn btn-outline" onclick="exportCSV()">📥 导出Excel</button>
 </div>
-<table><thead><tr><th>批次名称</th><th>操作</th></tr></thead><tbody id="batchList"><tr><td colspan="2" class="loading">加载中...</td></tr></tbody></table>
+<table><thead><tr><th>批次名称</th><th>截止时间</th><th>操作</th></tr></thead><tbody id="batchList"><tr><td colspan="3" class="loading">加载中...</td></tr></tbody></table>
+<div id="submissionResult" style="margin-top:16px"></div>
 </div>
 
 <!-- 管理员账号（超管专属） -->
@@ -156,6 +162,7 @@ tr:hover{background:#f8f9fa}
 <div class="form-group"><label>账号</label><input id="addAdminId"></div>
 <div class="form-group"><label>姓名</label><input id="addAdminName"></div>
 <div class="form-group"><label>密码</label><input id="addAdminPwd" type="text" value="123456"></div>
+<div class="form-group"><label>角色</label><select id="addAdminRole"><option value="admin">普通管理员</option><option value="superadmin">超级管理员</option></select></div>
 <div class="modal-actions">
 <button class="btn btn-outline" onclick="document.getElementById('addAdminModal').classList.remove('show')">取消</button>
 <button class="btn btn-success" onclick="addAdmin()">确认添加</button>
@@ -477,6 +484,7 @@ async function deploy(){
 }
 
 // ═══ 批次管理（超管） ═══
+let currentBatchForCheck='';
 async function loadBatches(){
  try{
   const r=await api('/api/batches',{});
@@ -485,17 +493,31 @@ async function loadBatches(){
 }
 function renderBatches(batches){
  const el=document.getElementById('batchList');
- if(!batches||batches.length===0){el.innerHTML='<tr><td colspan="2">暂无批次</td></tr>';return;}
- el.innerHTML=batches.map(b=>`<tr><td>${esc(b)}</td><td><button class="btn btn-danger btn-sm" onclick="deleteBatch('${esc(b)}')">删除</button></td></tr>`).join('');
+ if(!batches||batches.length===0){el.innerHTML='<tr><td colspan="3">暂无批次</td></tr>';return;}
+ el.innerHTML=batches.map(b=>{
+  const n=b.name||b;
+  const dl=b.deadline?new Date(b.deadline).toLocaleString('zh-CN'):'不限';
+  return `<tr><td>${esc(n)}</td><td>${dl} <button class="btn btn-sm btn-outline" onclick="setDeadline('${esc(n)}')">修改</button></td><td><button class="btn btn-info btn-sm" onclick="checkSubmissions('${esc(n)}')">检查</button> <button class="btn btn-danger btn-sm" onclick="deleteBatch('${esc(n)}')">删除</button></td></tr>`;
+ }).join('');
 }
 async function createBatch(){
  const name=document.getElementById('newBatchName').value.trim();
  if(!name){toast('请输入批次名称','error');return;}
+ const deadline=document.getElementById('newBatchDeadline').value;
  try{
-  const r=await api('/api/admin/batches/create',{name});
-  if(r.success){document.getElementById('newBatchName').value='';renderBatches(r.batches);toast('批次已创建','success');}
+  const r=await api('/api/admin/batches/create',{name,deadline:deadline||null});
+  if(r.success){document.getElementById('newBatchName').value='';document.getElementById('newBatchDeadline').value='';renderBatches(r.batches);toast('批次已创建','success');}
   else toast(r.error,'error');
  }catch(e){toast('创建失败','error');}
+}
+async function setDeadline(name){
+ const dl=prompt('设置「'+name+'」的截止时间\n格式：YYYY-MM-DDTHH:MM（如 2026-06-01T23:59）\n留空则取消截止时间');
+ if(dl===null)return;
+ try{
+  const r=await api('/api/admin/batches/update',{name,deadline:dl||null});
+  if(r.success){renderBatches(r.batches);toast('截止时间已更新','success');}
+  else toast(r.error,'error');
+ }catch(e){toast('更新失败','error');}
 }
 async function deleteBatch(name){
  if(!confirm('删除批次「'+name+'」？已上传文件不会删除'))return;
@@ -504,6 +526,35 @@ async function deleteBatch(name){
   if(r.success){renderBatches(r.batches);toast('批次已删除','success');}
   else toast(r.error,'error');
  }catch(e){toast('删除失败','error');}
+}
+async function checkSubmissions(batchName){
+ const batch=batchName||currentBatchForCheck;
+ if(!batch){toast('请先选择一个批次','error');return;}
+ currentBatchForCheck=batch;
+ const el=document.getElementById('submissionResult');
+ el.innerHTML='<div class="loading">检查中...</div>';
+ try{
+  const r=await api('/api/admin/submissions',{batch});
+  if(!r.success){el.innerHTML='<div class="loading">'+r.error+'</div>';return;}
+  el.innerHTML=`
+   <div style="margin-bottom:12px"><b>${esc(batch)}</b> | 共 ${r.total} 人 | ✅已交 ${r.submitted} | ❌未交 <span style="color:#e74c3c;font-weight:700">${r.unsubmitted}</span>${r.deadline?' | ⏰截止:'+new Date(r.deadline).toLocaleString('zh-CN'):''}</div>
+   <table><thead><tr><th>学号</th><th>姓名</th><th>状态</th><th>文件数</th><th>提交时间</th></tr></thead><tbody>
+   ${r.students.map(s=>'<tr><td>'+s.id+'</td><td>'+esc(s.name)+'</td><td>'+(s.submitted?'<span class="badge badge-active">已提交</span>':'<span class="badge badge-disabled">未交</span>')+'</td><td>'+s.fileCount+'</td><td>'+(s.lastSubmit||'')+'</td></tr>').join('')}
+   </tbody></table>`;
+ }catch(e){el.innerHTML='<div class="loading">检查失败</div>';}
+}
+async function exportCSV(){
+ const batch=currentBatchForCheck||prompt('输入要导出的批次名称');
+ if(!batch){return;}
+ currentBatchForCheck=batch;
+ try{
+  const r=await api('/api/admin/submissions/export',{batch});
+  if(!r.success){toast(r.error,'error');return;}
+  const blob=new Blob([r.csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=r.filename;a.click();
+  URL.revokeObjectURL(url);toast('导出成功','success');
+ }catch(e){toast('导出失败','error');}
 }
 
 // ═══ 管理员管理（超管） ═══
@@ -523,9 +574,10 @@ async function addAdmin(){
  const id=document.getElementById('addAdminId').value.trim();
  const name=document.getElementById('addAdminName').value.trim();
  const pwd=document.getElementById('addAdminPwd').value.trim();
+ const role=document.getElementById('addAdminRole').value;
  if(!id||!name||!pwd){toast('请填写完整','error');return;}
  try{
-  const r=await api('/api/admin/accounts',{action:'createAdmin',id,name,password:pwd});
+  const r=await api('/api/admin/accounts',{action:'createAdmin',id,name,password:pwd,role});
   if(r.success){document.getElementById('addAdminModal').classList.remove('show');document.getElementById('addAdminId').value='';document.getElementById('addAdminName').value='';document.getElementById('addAdminPwd').value='123456';loadAdmins();loadAccounts();toast('管理员已创建','success');}
   else toast(r.error,'error');
  }catch(e){toast('创建失败','error');}
