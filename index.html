@@ -67,6 +67,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 .hidden{display:none!important}
 </style>
+<script src="https://unpkg.com/@cloudbase/js-sdk@2.x/dist/index.umd.js"></script>
 </head>
 <body>
 
@@ -142,6 +143,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 // ═══ 配置 ═══
 const API='https://1321671019-bl6aqlm041.ap-guangzhou.tencentscf.com';
 let currentStudent=null,selectedFiles=[],chatInterval=null;
+const TCB_ENV='homework-d5gafbpfsf5dcd287';
+let tcbApp=null,tcbAuthed=false;
 
 // ═══ 工具 ═══
 async function s256(m){const b=new TextEncoder().encode(m);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
@@ -178,6 +181,12 @@ async function login(){
    document.getElementById('loginView').style.display='none';
    document.getElementById('mainView').classList.remove('hidden');
    loadBatches();
+   // CloudBase 匿名登录（无需密钥，SDK自动处理）
+   try{
+    tcbApp=cloudbase.init({env:TCB_ENV});
+    await tcbApp.auth().signInAnonymously();
+    tcbAuthed=true;
+   }catch(e){console.error('CloudBase auth failed',e)}
    return;
   }
   el.textContent=d.error||'登录失败';el.classList.add('msg-show');
@@ -185,6 +194,7 @@ async function login(){
 }
 function logout(){
  currentStudent=null;selectedFiles=[];clearInterval(chatInterval);
+ tcbApp=null;tcbAuthed=false;
  localStorage.removeItem('hw_token');localStorage.removeItem('hw_student');
  document.getElementById('mainView').classList.add('hidden');
  document.getElementById('loginView').style.display='block';
@@ -234,23 +244,19 @@ async function startUpload(){
  btn.disabled=true;es.classList.remove('msg-show');ss.classList.remove('msg-show');
  pb.style.display='block';pf.style.width='0%';
 
- const t=localStorage.getItem('hw_token');
- if(!t){es.textContent='登录已过期，请重新登录';es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
+ if(!tcbAuthed||!tcbApp){es.textContent='CloudBase未登录，请重新登录';es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
 
  status.textContent='正在上传...';
  let done=0,fail=0,results=[];
 
  for(const file of selectedFiles){
   const sn=file.name.replace(/[^\w.\-()\u4e00-\u9fa5]/g,'_');
+  const ts=Date.now();
+  const path=`hw-files/${batch}/${currentStudent.id}/${ts}_${sn}`;
   try{
-   const res=await fetch(API+'/api/upload?batch='+encodeURIComponent(batch),{
-    method:'POST',
-    headers:{'Authorization':'Bearer '+t,'X-Filename':encodeURIComponent(sn),'Content-Type':file.type||'application/octet-stream'},
-    body:file
-   });
-   const d=await res.json();
-   if(d.success){done++;results.push({name:file.name,key:d.key,size:file.size})}
-   else{fail++;console.error(d.error)}
+   const {data,error}=await tcbApp.storage.from().upload(path,file);
+   if(!error){done++;results.push({name:file.name,key:path,size:file.size})}
+   else{fail++;console.error(error)}
   }catch(e){fail++;console.error(file.name,e.message)}
   pf.style.width=(done+fail)/selectedFiles.length*100+'%';
   status.textContent=`已上传 ${done}/${selectedFiles.length}${fail>0?' ('+fail+'失败)':''}`;
