@@ -245,7 +245,7 @@ async function startUpload(){
   try{
    const res=await fetch(API+'/api/upload?batch='+encodeURIComponent(batch),{
     method:'POST',
-    headers:{'Authorization':'Bearer '+t,'X-Filename':sn,'Content-Type':file.type||'application/octet-stream'},
+    headers:{'Authorization':'Bearer '+t,'X-Filename':encodeURIComponent(sn),'Content-Type':file.type||'application/octet-stream'},
     body:file
    });
    const d=await res.json();
