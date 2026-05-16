@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>收作业系统 · 教师管理 v2</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
+.topbar{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{font-size:18px;font-weight:600}
+.topbar .user{font-size:13px;opacity:.8;cursor:pointer}
+.container{max-width:960px;margin:0 auto;padding:20px}
+.tabs{display:flex;gap:2px;background:#fff;border-radius:12px 12px 0 0;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.tab{flex:1;padding:14px;text-align:center;cursor:pointer;font-size:14px;font-weight:500;color:#666;border-bottom:3px solid transparent;transition:all .2s}
+.tab:hover{background:#f8f9fa}
+.tab.active{color:#1a1a2e;border-bottom-color:#1a1a2e;background:#f8f9fa}
+.panel{background:#fff;padding:24px;border-radius:0 0 12px 12px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:none}
+.panel.active{display:block}
+/* Login */
+.login-card{max-width:380px;margin:80px auto;background:#fff;padding:32px;border-radius:14px;box-shadow:0 4px 24px rgba(0,0,0,.1);text-align:center}
+.login-card h2{font-size:20px;margin-bottom:6px}
+.login-card p{color:#888;font-size:13px;margin-bottom:20px}
+.login-card input{width:100%;padding:12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:15px;outline:none;margin-bottom:14px}
+.login-card input:focus{border-color:#1a1a2e}
+/* Buttons */
+.btn{padding:10px 20px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-dark{background:#1a1a2e;color:#fff}
+.btn-dark:hover{opacity:.9}
+.btn-info{background:#3498db;color:#fff}
+.btn-info:hover{background:#2980b9}
+.btn-success{background:#27ae60;color:#fff}
+.btn-danger{background:#e74c3c;color:#fff;padding:6px 12px;font-size:12px}
+.btn-danger:hover{background:#c0392b}
+.btn-outline{background:#fff;color:#1a1a2e;border:1.5px solid #e0e0e0}
+.btn-outline:hover{background:#f0f0f0}
+.btn-sm{padding:6px 12px;font-size:12px}
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:13px;font-weight:500;color:#333;margin-bottom:4px}
+.form-group input,.form-group select{width:100%;padding:10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:#1a1a2e}
+.input-row{display:flex;gap:8px;align-items:flex-end}
+.input-row .form-group{flex:1}
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px}
+th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #eee}
+th{color:#888;font-weight:600;font-size:12px;text-transform:uppercase;white-space:nowrap}
+tr:hover{background:#f8f9fa}
+/* Stats */
+.stats{display:flex;gap:16px;margin-bottom:20px}
+.stat{flex:1;background:#f8f9fa;border-radius:10px;padding:16px;text-align:center}
+.stat .num{font-size:28px;font-weight:700;color:#1a1a2e}
+.stat .label{font-size:12px;color:#888;margin-top:4px}
+/* Messages */
+.msg-list{max-height:400px;overflow-y:auto;margin-top:12px}
+.msg{border-bottom:1px solid #f0f0f0;padding:10px 0;display:flex;gap:10px}
+.msg .avatar{width:36px;height:36px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.msg .body{flex:1}
+.msg .author{font-weight:600;font-size:13px}
+.msg .author .time{font-weight:400;color:#999;font-size:11px;margin-left:8px}
+.msg .text{font-size:13px;color:#333;margin-top:4px}
+.msg .del-btn{font-size:11px;color:#e74c3c;cursor:pointer;background:none;border:none;padding:2px 6px;align-self:flex-start;margin-top:4px}
+.msg .del-btn:hover{background:#fef0f0;border-radius:4px}
+/* File list */
+.file-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0}
+.file-row .icon{font-size:20px;width:30px;text-align:center}
+.file-row .fname{flex:1;font-size:13px}
+.file-row .fsize{font-size:12px;color:#888;white-space:nowrap}
+.file-row .ftime{font-size:11px;color:#aaa;white-space:nowrap}
+/* Search */
+.search-box{padding:10px 14px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:14px;width:100%;margin-bottom:14px;outline:none}
+.search-box:focus{border-color:#1a1a2e}
+/* Toast */
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:10px;color:#fff;font-size:14px;z-index:999;display:none}
+.toast.success{background:#27ae60}
+.toast.error{background:#e74c3c}
+.toast.show{display:block;animation:fadeIn .3s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+/* Modal */
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:14px;padding:24px;width:90%;max-width:400px}
+.modal-content h3{font-size:16px;margin-bottom:14px}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.badge{padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600}
+.badge-active{background:#e8f5e9;color:#27ae60}
+.badge-disabled{background:#fde8e8;color:#e74c3c}
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.toolbar .spacer{flex:1}
+#loginView{display:block}
+#mainView{display:none}
+.hidden{display:none!important}
+.loading{text-align:center;padding:20px;color:#888}
+</style>
+</head>
+<body>
+
+<div id="loginView">
+<div class="login-card">
+<h2>🔧 收作业系统</h2>
+<p>教师管理端</p>
+<input id="adminPwd" type="password" placeholder="管理密码" onkeydown="if(event.key==='Enter')adminLogin()">
+<div id="loginError" style="color:#e74c3c;font-size:13px;margin-bottom:10px;display:none"></div>
+<button class="btn btn-dark" onclick="adminLogin()" style="width:100%">登 录</button>
+</div>
+</div>
+
+<div id="mainView" class="hidden">
+<div class="topbar">
+<h1>📚 收作业系统 · 教师管理</h1>
+<span class="user" onclick="adminLogout()">退出 ▸</span>
+</div>
+<div class="container">
+<div class="tabs">
+<div class="tab active" data-panel="panelStudents">👥 学生管理</div>
+<div class="tab" data-panel="panelFiles">📁 文件浏览</div>
+<div class="tab" data-panel="panelChat">💬 聊天管理</div>
+<div class="tab" data-panel="panelDeploy">🚀 发布</div>
+</div>
+
+<div class="panel active" id="panelStudents">
+<div class="stats">
+<div class="stat"><div class="num" id="statTotal">-</div><div class="label">学生总数</div></div>
+<div class="stat"><div class="num" id="statActive">-</div><div class="label">已启用</div></div>
+<div class="stat"><div class="num" id="statDisabled">-</div><div class="label">已禁用</div></div>
+</div>
+<div class="input-row">
+<div class="form-group"><label>搜索</label><input class="search-box" id="searchStudent" placeholder="学号或姓名..." oninput="renderStudents()"></div>
+<button class="btn btn-success" onclick="showAddStudent()" style="margin-bottom:14px">＋ 添加</button>
+</div>
+<div id="studentList"></div>
+</div>
+
+<div class="panel" id="panelFiles">
+<div class="toolbar">
+<div class="form-group" style="min-width:200px"><label>作业批次</label><input id="fileBatch" placeholder="如：设计素描作业3" onchange="loadFiles()"></div>
+<div class="form-group" style="min-width:150px"><label>学号(可选)</label><input id="fileStudent" placeholder="筛选学号" onchange="loadFiles()"></div>
+<button class="btn btn-info" onclick="loadFiles()" style="margin-top:20px">🔍 查询</button>
+<span class="spacer"></span>
+<span style="font-size:12px;color:#888" id="fileCount"></span>
+</div>
+<div id="fileListContainer"><div class="loading">输入批次名称查询</div></div>
+</div>
+
+<div class="panel" id="panelChat">
+<div class="toolbar">
+<div class="form-group" style="min-width:200px"><label>作业批次</label><input id="chatBatch" placeholder="如：设计素描作业3" onchange="loadChat()"></div>
+<button class="btn btn-info" onclick="loadChat()" style="margin-top:20px">💬 加载消息</button>
+<button class="btn btn-danger btn-sm" onclick="clearChat()" style="margin-top:20px">🗑 清空</button>
+<span class="spacer"></span>
+<span style="font-size:12px;color:#888" id="chatCount"></span>
+</div>
+<div id="chatList"><div class="loading">输入批次名称加载消息</div></div>
+</div>
+
+<div class="panel" id="panelDeploy">
+<h3 style="margin-bottom:16px">🚀 发布到网站</h3>
+<p style="color:#666;font-size:13px;margin-bottom:16px">保存当前账号数据到云端，学生登录时将使用最新账号。</p>
+<button class="btn btn-success" onclick="deploy()" style="width:100%;padding:16px;font-size:16px">🚀 保存并发布</button>
+<div id="deployStatus" style="margin-top:12px;font-size:13px;text-align:center"></div>
+</div>
+
+</div></div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Add Student Modal -->
+<div class="modal" id="addModal">
+<div class="modal-content">
+<h3>添加学生</h3>
+<div class="form-group"><label>学号</label><input id="addId"></div>
+<div class="form-group"><label>姓名</label><input id="addName"></div>
+<div class="form-group"><label>初始密码</label><input id="addPwd" type="text" value="123456"></div>
+<div class="modal-actions">
+<button class="btn btn-outline" onclick="hideAddModal()">取消</button>
+<button class="btn btn-success" onclick="addStudent()">确认添加</button>
+</div>
+</div></div>
+
+<!-- Edit Modal -->
+<div class="modal" id="editModal">
+<div class="modal-content">
+<h3>编辑学生</h3>
+<input type="hidden" id="editOrigId">
+<div class="form-group"><label>学号</label><input id="editId"></div>
+<div class="form-group"><label>姓名</label><input id="editName"></div>
+<div class="form-group"><label>新密码（留空不修改）</label><input id="editPwd" type="text" placeholder="留空则不修改密码"></div>
+<div class="modal-actions">
+<button class="btn btn-outline" onclick="hideEditModal()">取消</button>
+<button class="btn btn-success" onclick="saveEdit()">保存</button>
+</div>
+</div></div>
+
+<script>
+const API='https://1321671019-bl6aqlm041.ap-guangzhou.tencentscf.com';
+let adminToken='';
+let accounts=null; // {students:[...]}
+let currentTab='panelStudents';
+
+// ═══ 内嵌账号（离线备用） ═══
+const EMBEDDED={"students":[{"id":"2528510201","name":"杨梦圆","passwordHash":"8c1f4ae5fb3f4bf418352ffc43020ae5f10f05db5e47da44c526183abd034387","enabled":true},{"id":"2528510202","name":"俞岚淅","passwordHash":"ccf1f97b7582657bd5899c95369f92a6a137c18f498075e2c430e54871ceb98d","enabled":true},{"id":"2528510203","name":"王芯雅","passwordHash":"0d7ecf052fe7d1efb832263863c4fd3ec23c145da1e98f10bac4431c035c4914","enabled":true},{"id":"2528510204","name":"韩昕瑶","passwordHash":"81272e3761955a07249c705d6aece1877cba527b4e6b48baf268c2ad0413d65a","enabled":true},{"id":"2528510205","name":"任媛源","passwordHash":"9d3e17cc810af7ec10e439ae0d5690b552e7d6eb15afc1c7b2ceda094d7163fe","enabled":true},{"id":"2528510206","name":"陈梓涵","passwordHash":"c2e13b57882c00a1337ff5856c746275877924cda0421d7365f40bcc5deee70b","enabled":true},{"id":"2528510207","name":"袁恭洁","passwordHash":"f32ab76d76f3c95309c12b2643ade74f41842ca5a71b31e868b5a0bd6bfaf19a","enabled":true},{"id":"2528510208","name":"张辰玉","passwordHash":"58b5c45d81740d6d01888f2ec4e9241358a5e654d0815f0dc9328da3e10b2366","enabled":true},{"id":"2528510209","name":"肖亚男","passwordHash":"979c5b2309aa2ee74b83e3a1c76a67b0bc11958cdd592d30e450d46312a63090","enabled":true},{"id":"2528510210","name":"邵子懿","passwordHash":"93617d027f48b45d8f29eecf1652d4e619a043a049b7c5edc70fd008cffeb457","enabled":true},{"id":"2528510211","name":"丁姚萌","passwordHash":"32384ff2d1da2d77578f165ed7636204fcbdb4b233111be6c38229ff37b1064e","enabled":true},{"id":"2528510212","name":"孔雨轩","passwordHash":"dd1c8d193c1f807294557680ae2208117c4b9f0280001649f21517359ad23bab","enabled":true},{"id":"2528510213","name":"糜天慧","passwordHash":"1ed1b5c0ced9259675272e79d6f42f5ab51563fc3403f32e52ac7d3d15161f5f","enabled":true},{"id":"2528510214","name":"何雯","passwordHash":"6e4dfdecfafdabd31046cda9a039ec411b639ce729995f23fb477e24da9a3729","enabled":true},{"id":"2528510215","name":"顾翊","passwordHash":"69e880b147a0dd810bb6947a946fad1c435c405e73f4ed88057611d29d08ce27","enabled":true},{"id":"2528510216","name":"段佳怡","passwordHash":"1636bff3142129c0749559cdc3a4a0afabb214bcbc28166f4b3011b75a4d6c17","enabled":true},{"id":"2528510217","name":"王欣瑜","passwordHash":"5248439f78a1b4f314b740ee35442c0874eaa2f9bb1ce738deddf2d83c5f7f35","enabled":true},{"id":"2528510218","name":"吴昕怡","passwordHash":"66aa2cb1d73160d0390a62bf91a0094416e350eb95a7b175e3ec3b25579bd284","enabled":true},{"id":"2528510219","name":"席文涛","passwordHash":"f8b60c45307e0e10d24bccfc7c376a80ffc5a33d8d4c4c24fa2f2f51be35d370","enabled":true},{"id":"2528510220","name":"张媛","passwordHash":"783be38fce6d1f7cdb9220dec6c34f590446738a89a674695af57f7efef0caed","enabled":true},{"id":"2528510221","name":"叶松芝","passwordHash":"72e3631be441a57cc15138329730a28bf8a1625bcad3a508b10328e9121f3d81","enabled":true},{"id":"2528510222","name":"陈婧涵","passwordHash":"7615cf926ae09c298b3811c1f193a0ce7d549ba2f234e1a44a69bbed09de2089","enabled":true},{"id":"2528510223","name":"黄川茜","passwordHash":"865f237c758d54e076a5d577d80a34d581cae75ae5c5cf09d6330e282e8141da","enabled":true},{"id":"2528510224","name":"解芯悦","passwordHash":"5e2c177d31ee8387c1e76ae76913d7a01a7bb74ef7d872b2a9003b848b53ce2b","enabled":true},{"id":"2528510225","name":"邱柳菲","passwordHash":"d0540d652ee3d208cb026fa09831b50e0c83d10ede4d8bd2d640ac4fc22d2cbd","enabled":true},{"id":"2528510226","name":"王雨欣","passwordHash":"573f5d87ae59a9598f0edd6f01a5d767d0fa0bbc3bb3340cb8b980b5fc9f2893","enabled":true},{"id":"2528510227","name":"戴国馨","passwordHash":"cb635b3cfa5b766885a7e0cd2afe180fff760e4972dfaa7467bc8e7be72794eb","enabled":true},{"id":"2528510228","name":"刘佳宁","passwordHash":"076f5d14739ebb3853f8c8ce6ed7077e170d021d3f6b2c4da9597dff18364db8","enabled":true},{"id":"2528510229","name":"杨小雅","passwordHash":"b8b59c87d41164992643eca4094060e5b365ac54ff90cb55c13e13c631fe69b0","enabled":true},{"id":"2528510230","name":"李甜甜","passwordHash":"dc1c9bc0955adbb1f580139ea1b5b7f77af5447f345461c87b003f748970ff12","enabled":true},{"id":"2528510231","name":"赵紫涵","passwordHash":"ea02804ebd91c5947a62e881ec089f1a8860bb170440e1c70afe332456d7e732","enabled":true},{"id":"2528510232","name":"谢恩惠","passwordHash":"75ce53ab0b8def76150087b8e4a08b8801ca747a3bf36c7152f7a6900035b3d6","enabled":true},{"id":"2528510233","name":"张景涵","passwordHash":"6647c00f763283209f5c38b0f13b8ceaea7470cd8c17cd17472504a99d319bc7","enabled":true},{"id":"2528510234","name":"张怡婷","passwordHash":"edcb0ad56d66ddd2d2f4ada20d276092421586a146630e1729d4fd07c1056913","enabled":true},{"id":"2528510235","name":"李紫娟","passwordHash":"0c69b73a5764f48e028e374e73f870c1f4cda2438e9292a772d54ec0713403dd","enabled":true},{"id":"2528510236","name":"孙博妍","passwordHash":"a8e814f11a3c03f7052901be32a2f1296b87353f80e362a9f03a32a9a165071e","enabled":true},{"id":"2528510237","name":"王心怡","passwordHash":"e4c0715f7f06844bf1983f91ef0f4f24d93db188a8628386f6163621fd85bb85","enabled":true},{"id":"2528510238","name":"李乐凡","passwordHash":"5f06e67db0fd2d4caff5eb3a9f59db9c38ffb78b486ef8900038cf2988477041","enabled":true},{"id":"2528510239","name":"覃瑞","passwordHash":"e5f8c186ad7444065b750b043e0b4b51c6bda2012814d76417dc6277a46fdb43","enabled":true},{"id":"2528510240","name":"许志","passwordHash":"7bd69b7df74f6f13eb89a5dac67c47197ca988d9b26e47b51b9f642d48f7f2de","enabled":true},{"id":"2528510241","name":"顾若一","passwordHash":"df19e0f4bc8cd3032d3831e50baee8c2762c044cdab94cde4247f9c1ed985dac","enabled":true},{"id":"2528510242","name":"顾博文","passwordHash":"61623278b7f38f163210ebeff2a42d30b59892996cfc9c59b0b233bc81c64009","enabled":true},{"id":"2528510243","name":"李元祯","passwordHash":"13d5dcaf2fc88dc8f226fc0e437f30ba3180088fbe940fe74124b53a679b83c3","enabled":true},{"id":"2528510244","name":"钱润超","passwordHash":"367ed6e3f7c2b7b67f080ca4c4b0bc658694a44317acc4fe68b34874937de306","enabled":true},{"id":"2528510245","name":"毛文轩","passwordHash":"5b6fa606f59a2093266d75bfc6464e5065bc00ab6f6f60252ddea76079a6730a","enabled":true},{"id":"2528510246","name":"葛程哲","passwordHash":"c4f121d71ed7639ab41c3811425c31f19c525b33b6af31721f6d9b15e4aaf7af","enabled":true},{"id":"2528510247","name":"何鑫辰","passwordHash":"936582b9488ad0a4316f3ef8c97dbdb2c645ff54c89109e7b37eaa490b3aec5c","enabled":true},{"id":"2528510248","name":"梁鑫檗","passwordHash":"3c4ba704babf90678da8013452c61fdc874cd0bf7b9e701c2ed1c5ad14e87faf","enabled":true}]};;
+
+// ═══ SHA256 ═══
+async function s256(m){const b=new TextEncoder().encode(m);const h=await crypto.subtle.digest('SHA-256',b);return Array.from(new Uint8Array(h)).map(x=>x.toString(16).padStart(2,'0')).join('');}
+
+// ═══ API 调用 ═══
+async function api(path,body,token){
+ token=token||adminToken;
+ const hdrs={'Content-Type':'application/json'};
+ if(token)hdrs['Authorization']='Bearer '+token;
+ const r=await fetch(API+path,{method:'POST',headers:hdrs,body:JSON.stringify(body)});
+ return r.json();
+}
+
+// ═══ Toast ═══
+function toast(msg,type){
+ const t=document.getElementById('toast');
+ t.textContent=msg;t.className='toast '+type+' show';
+ setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ═══ 登录 ═══
+async function adminLogin(){
+ const pw=document.getElementById('adminPwd').value;
+ const err=document.getElementById('loginError');
+ err.style.display='none';
+ if(!pw){err.textContent='请输入密码';err.style.display='block';return;}
+
+ // 先试离线
+ const h=await s256(pw);
+ if(h==='240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'){
+  try{
+   const r=await api('/api/admin/login',{password:pw},null);
+   if(r.success)adminToken=r.token;
+  }catch(e){console.log('云端登录失败，使用离线模式');}
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('mainView').classList.remove('hidden');
+  await loadAccounts();
+  return;
+ }
+
+ // 试云端
+ try{
+  const r=await api('/api/admin/login',{password:pw},null);
+  if(r.success){adminToken=r.token;showMain();return;}
+  err.textContent=r.error||'密码错误';err.style.display='block';
+ }catch(e){
+  err.textContent='登录失败，请检查网络';err.style.display='block';
+ }
+}
+function showMain(){
+ document.getElementById('loginView').style.display='none';
+ document.getElementById('mainView').classList.remove('hidden');
+ loadAccounts();
+}
+
+// ═══ 退出 ═══
+function adminLogout(){
+ adminToken='';
+ accounts=null;
+ document.getElementById('mainView').classList.add('hidden');
+ document.getElementById('loginView').style.display='block';
+ document.getElementById('adminPwd').value='';
+}
+
+// ═══ 标签切换 ═══
+document.querySelectorAll('.tab').forEach(t=>{
+ t.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active');
+  document.getElementById(t.dataset.panel).classList.add('active');
+  currentTab=t.dataset.panel;
+ });
+});
+
+// ═══ 加载账号 ═══
+async function loadAccounts(){
+ try{
+  const r=await api('/api/admin/accounts',{action:'list'});
+  if(r && Object.keys(r).length>0){
+   // API返回的是{studentId:{id,name,passwordHash,enabled}}
+   const students=[];
+   for(const [id,s] of Object.entries(r)){
+    students.push({id,name:s.name,passwordHash:s.passwordHash,enabled:s.enabled!==false});
+   }
+   accounts={students};
+  }
+ }catch(e){console.log('云端加载失败，使用内嵌数据');}
+ if(!accounts&&EMBEDDED)accounts=EMBEDDED;
+ if(!accounts)accounts={students:[]};
+ renderStudents();
+ updateStats();
+}
+async function saveAccounts(){
+ try{
+  await api('/api/admin/accounts',{action:'save',accounts});
+  toast('账号已保存','success');
+ }catch(e){toast('保存失败: '+e.message,'error');}
+}
+function updateStats(){
+ const s=accounts.students||[];
+ document.getElementById('statTotal').textContent=s.length;
+ document.getElementById('statActive').textContent=s.filter(x=>x.enabled!==false).length;
+ document.getElementById('statDisabled').textContent=s.filter(x=>x.enabled===false).length;
+}
+function renderStudents(){
+ const q=(document.getElementById('searchStudent')?.value||'').toLowerCase();
+ const s=(accounts.students||[]).filter(x=>!q||x.id.toLowerCase().includes(q)||x.name.includes(q));
+ const el=document.getElementById('studentList');
+ el.innerHTML='<table><thead><tr><th>学号</th><th>姓名</th><th>状态</th><th>操作</th></tr></thead><tbody>'+
+  s.map(x=>`<tr>
+   <td>${x.id}</td><td>${x.name}</td>
+   <td><span class="badge ${x.enabled!==false?'badge-active':'badge-disabled'}">${x.enabled!==false?'已启用':'已禁用'}</span></td>
+   <td>
+    <button class="btn btn-info btn-sm" onclick="showEdit('${x.id}')">编辑</button>
+    <button class="btn btn-outline btn-sm" onclick="toggleStudent('${x.id}')">${x.enabled!==false?'禁用':'启用'}</button>
+    <button class="btn btn-danger btn-sm" onclick="delStudent('${x.id}')">删除</button>
+   </td></tr>`).join('')+
+  '</tbody></table>';
+}
+function showAddStudent(){
+ document.getElementById('addId').value='';document.getElementById('addName').value='';
+ document.getElementById('addPwd').value='123456';
+ document.getElementById('addModal').classList.add('show');
+}
+function hideAddModal(){document.getElementById('addModal').classList.remove('show');}
+async function addStudent(){
+ const id=document.getElementById('addId').value.trim();
+ const name=document.getElementById('addName').value.trim();
+ const pwd=document.getElementById('addPwd').value||'123456';
+ if(!id||!name){toast('请填写学号和姓名','error');return;}
+ if(accounts.students.find(s=>s.id===id)){toast('学号已存在','error');return;}
+ accounts.students.push({id,name,passwordHash:await s256(pwd),enabled:true});
+ hideAddModal();
+ await saveAccounts();
+ renderStudents();updateStats();
+ toast('添加成功','success');
+}
+function showEdit(id){
+ const s=accounts.students.find(x=>x.id===id);
+ if(!s)return;
+ document.getElementById('editOrigId').value=id;
+ document.getElementById('editId').value=id;
+ document.getElementById('editName').value=s.name;
+ document.getElementById('editPwd').value='';
+ document.getElementById('editModal').classList.add('show');
+}
+function hideEditModal(){document.getElementById('editModal').classList.remove('show');}
+async function saveEdit(){
+ const origId=document.getElementById('editOrigId').value;
+ const newId=document.getElementById('editId').value.trim();
+ const name=document.getElementById('editName').value.trim();
+ const pwd=document.getElementById('editPwd').value;
+ const s=accounts.students.find(x=>x.id===origId);
+ if(!s)return;
+ if(newId!==origId&&accounts.students.find(x=>x.id===newId)){toast('新学号已存在','error');return;}
+ s.id=newId;s.name=name;
+ if(pwd)s.passwordHash=await s256(pwd);
+ hideEditModal();
+ await saveAccounts();
+ renderStudents();
+ toast('修改成功','success');
+}
+async function toggleStudent(id){
+ const s=accounts.students.find(x=>x.id===id);
+ if(!s)return;
+ s.enabled=s.enabled===false?true:false;
+ await saveAccounts();
+ renderStudents();updateStats();
+}
+async function delStudent(id){
+ if(!confirm('确认删除学生 '+id+'?'))return;
+ accounts.students=accounts.students.filter(x=>x.id!==id);
+ await saveAccounts();
+ renderStudents();updateStats();
+}
+
+// ═══ 文件浏览 ═══
+async function loadFiles(){
+ const batch=document.getElementById('fileBatch').value.trim();
+ const sid=document.getElementById('fileStudent').value.trim();
+ const el=document.getElementById('fileListContainer');
+ if(!batch){el.innerHTML='<div class="loading">输入批次名称查询</div>';return;}
+ el.innerHTML='<div class="loading">加载中...</div>';
+ try{
+  const r=await api('/api/admin/files',{batch,studentId:sid||undefined});
+  document.getElementById('fileCount').textContent=r.files?r.files.length+' 个文件':'0 个文件';
+  if(!r.files||r.files.length===0){el.innerHTML='<div class="loading">没有找到文件</div>';return;}
+  const cosBase='https://homework-1321671019.cos.ap-guangzhou.myqcloud.com/';
+  el.innerHTML=r.files.map(f=>{
+   const ext=(f.key.split('.').pop()||'').toLowerCase();
+   const icon={'jpg':'🖼','jpeg':'🖼','png':'🖼','gif':'🖼','mp4':'🎬','mov':'🎬','zip':'📦','rar':'📦','pdf':'📄','doc':'📝','docx':'📝','xls':'📊','xlsx':'📊','ppt':'📽'}[ext]||'📎';
+   const size=f.size<1024*1024?(f.size/1024).toFixed(0)+'KB':(f.size/(1024*1024)).toFixed(1)+'MB';
+   return `<div class="file-row">
+    <span class="icon">${icon}</span>
+    <span class="fname"><a href="${cosBase+encodeURI(f.key)}" download target="_blank">${f.key.split('/').pop()}</a></span>
+    <span class="fsize">${size}</span>
+    <span class="ftime">${f.time}</span>
+   </div>`;
+  }).join('');
+ }catch(e){el.innerHTML='<div class="loading">加载失败: '+e.message+'</div>';}
+}
+
+// ═══ 聊天管理 ═══
+async function loadChat(){
+ const batch=document.getElementById('chatBatch').value.trim();
+ const el=document.getElementById('chatList');
+ if(!batch){el.innerHTML='<div class="loading">输入批次名称加载消息</div>';return;}
+ el.innerHTML='<div class="loading">加载中...</div>';
+ try{
+  const r=await api('/api/admin/messages',{action:'list',batch});
+  document.getElementById('chatCount').textContent=r.messages?r.messages.length+' 条消息':'0 条';
+  if(!r.messages||r.messages.length===0){el.innerHTML='<div class="loading">暂无消息</div>';return;}
+  el.innerHTML='<div class="msg-list">'+r.messages.map(m=>`
+   <div class="msg">
+    <div class="avatar">${(m.name||'?')[0]}</div>
+    <div class="body">
+     <div class="author">${m.name||'?'} (${m.sid||''})<span class="time">${new Date(m.time*1000).toLocaleString('zh-CN')}</span></div>
+     <div class="text">${esc(m.text)}</div>
+    </div>
+    <button class="del-btn" onclick="delMsg('${batch}','${m.id}')">删除</button>
+   </div>`).join('')+'</div>';
+ }catch(e){el.innerHTML='<div class="loading">加载失败: '+e.message+'</div>';}
+}
+async function delMsg(batch,msgId){
+ if(!confirm('确认删除这条消息?'))return;
+ try{
+  await api('/api/admin/messages',{action:'delete',batch,messageId:msgId});
+  toast('消息已删除','success');
+  loadChat();
+ }catch(e){toast('删除失败','error');}
+}
+async function clearChat(){
+ const batch=document.getElementById('chatBatch').value.trim();
+ if(!batch)return;
+ if(!confirm('确认清空批次 '+batch+' 的所有消息?'))return;
+ try{
+  await api('/api/admin/messages',{action:'clear',batch});
+  toast('已清空','success');
+  loadChat();
+ }catch(e){toast('清空失败','error');}
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══ 发布 ═══
+async function deploy(){
+ const el=document.getElementById('deployStatus');
+ el.style.color='#666';el.textContent='保存中...';
+ try{
+  await saveAccounts();
+  el.style.color='#27ae60';el.textContent='✅ 发布完成！账号数据已同步到云端';
+ }catch(e){el.style.color='#e74c3c';el.textContent='❌ '+e.message;}
+}
+</script>
+</body>
+</html>
