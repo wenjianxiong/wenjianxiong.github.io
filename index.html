@@ -246,10 +246,18 @@ async function startUpload(){
    if(cd.success&&cd.credentials){
     const c=cd.credentials;
     cosCfg={getAuthorization:(o,cb)=>cb({TmpSecretId:c.tmpSecretId,TmpSecretKey:c.tmpSecretKey,SecurityToken:c.sessionToken,StartTime:c.startTime,ExpiredTime:c.expiredTime})};
+   }else{
+    es.textContent='获取凭证失败: '+(cd.error||'请重新登录');es.classList.add('msg-show');
    }
+  }else{
+   es.textContent='登录已过期，请重新登录';es.classList.add('msg-show');
   }
- }catch(e){console.log('STS 获取失败')}
- if(!cosCfg){es.textContent='获取上传凭证失败，请重新登录';es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
+ }catch(e){
+  es.textContent='网络异常: 获取凭证超时，请检查网络或刷新重试';es.classList.add('msg-show');
+ }
+ if(!cosCfg){es.textContent||(es.textContent='获取上传凭证失败，请重新登录');es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
+
+ status.textContent='正在上传...';
 
  const cos=new COS(cosCfg);
  const prefix=`${batch}/${currentStudent.id}/`;
