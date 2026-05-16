@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>收作业系统</title>
-<script src="https://cdn.bootcdn.net/ajax/libs/cos-js-sdk-v5/1.8.0/cos-js-sdk-v5.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;min-height:100vh}
@@ -235,44 +234,27 @@ async function startUpload(){
  btn.disabled=true;es.classList.remove('msg-show');ss.classList.remove('msg-show');
  pb.style.display='block';pf.style.width='0%';
 
- // 获取 STS
- status.textContent='获取上传凭证...';
- let cosCfg;
- try{
-  const t=localStorage.getItem('hw_token');
-  if(t){
-   const cr=await fetch(API+'/api/credential',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({homeworkBatch:batch})});
-   const cd=await cr.json();
-   if(cd.success&&cd.credentials){
-    const c=cd.credentials;
-    cosCfg={getAuthorization:(o,cb)=>cb({TmpSecretId:c.tmpSecretId,TmpSecretKey:c.tmpSecretKey,SecurityToken:c.sessionToken,StartTime:c.startTime,ExpiredTime:c.expiredTime})};
-   }else{
-    es.textContent='获取凭证失败: '+(cd.error||'请重新登录');es.classList.add('msg-show');
-   }
-  }else{
-   es.textContent='登录已过期，请重新登录';es.classList.add('msg-show');
-  }
- }catch(e){
-  es.textContent='网络异常: 获取凭证超时，请检查网络或刷新重试';es.classList.add('msg-show');
- }
- if(!cosCfg){es.textContent||(es.textContent='获取上传凭证失败，请重新登录');es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
+ const t=localStorage.getItem('hw_token');
+ if(!t){es.textContent='登录已过期，请重新登录';es.classList.add('msg-show');btn.disabled=false;pb.style.display='none';return;}
 
  status.textContent='正在上传...';
-
- const cos=new COS(cosCfg);
- const prefix=`${batch}/${currentStudent.id}/`;
  let done=0,fail=0,results=[];
 
  for(const file of selectedFiles){
-  const ts=Date.now(),sn=file.name.replace(/[^\w.\-()\u4e00-\u9fa5]/g,'_'),key=prefix+ts+'_'+sn;
+  const sn=file.name.replace(/[^\w.\-()\u4e00-\u9fa5]/g,'_');
   try{
-   await new Promise((rs,rj)=>cos.putObject({Bucket:'homework-1321671019',Region:'ap-guangzhou',Key:key,Body:file,onProgress:info=>{
-    const p=Math.round(info.percent*100);status.textContent=`${file.name} (${p}%)  ${done+fail+1}/${selectedFiles.length}`;
-   }},(e,d)=>{if(e){fail++;rj(e)}else{done++;results.push({name:file.name,key,size:file.size});rs()}}));
-  }catch(e){console.error(file.name,e.message)}
+   const res=await fetch(API+'/api/upload?batch='+encodeURIComponent(batch),{
+    method:'POST',
+    headers:{'Authorization':'Bearer '+t,'X-Filename':sn,'Content-Type':file.type||'application/octet-stream'},
+    body:file
+   });
+   const d=await res.json();
+   if(d.success){done++;results.push({name:file.name,key:d.key,size:file.size})}
+   else{fail++;console.error(d.error)}
+  }catch(e){fail++;console.error(file.name,e.message)}
+  pf.style.width=(done+fail)/selectedFiles.length*100+'%';
+  status.textContent=`已上传 ${done}/${selectedFiles.length}${fail>0?' ('+fail+'失败)':''}`;
  }
- const pct=((done+fail)/selectedFiles.length*100).toFixed(0);
- pf.style.width=pct+'%';
  if(fail===0){
   ss.textContent=`✅ 全部成功！${done}个文件已上传`;ss.classList.add('msg-show');
   status.textContent='上传完成 ✓';
