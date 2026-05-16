@@ -200,7 +200,7 @@ async function loadBatches(){
   const d=await r.json();
   if(d.success&&d.batches){
    const sel=document.getElementById('batchName');
-   sel.innerHTML=d.batches.map((b,i)=>'<option value="'+esc(b)+'"'+(i===0?' selected':'')+'>'+esc(b)+'</option>').join('');
+   sel.innerHTML=d.batches.map((b,i)=>'<option value="'+esc(b.name||b)+'"'+(i===0?' selected':'')+'>'+esc(b.name||b)+(b.deadline?' ⏰截止:'+b.deadline.split('T')[0]:'')+'</option>').join('');
    sel.onchange=()=>{document.getElementById('fileList').innerHTML='';selectedFiles=[];document.getElementById('uploadBtn').disabled=true;};
   }
  }catch(e){}
